@@ -1,6 +1,6 @@
 
 # build stage
-FROM golang:1.11-alpine
+FROM golang:1.11-alpine AS build-env
 RUN apk add --no-cache git mercurial
 
 WORKDIR /go/src/app
@@ -11,9 +11,9 @@ RUN go build -o server
 
 # final stage
 FROM alpine
-WORKDIR /app
+WORKDIR /app/public/
 COPY --from=build-env /go/src/app/server /app/
 
 EXPOSE 80 443 8080 8100 9090 3000
-VOLUME ["/mnt"]
+VOLUME ["/app/public/"]
 ENTRYPOINT /app/server

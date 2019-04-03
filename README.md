@@ -15,7 +15,7 @@ It is support serve prometius metrics also.
 ## Docker
 image: hobord/go_static_httpfs
 ```
-docker run -p 8100:8100 -v ./your_public:/mnt -e DIRECTORY=/mnt -e LOG=true hobord/go_static_httpfs
+docker run -p 8100:8100 -v ./your_public:/app/public -e DIRECTORY=/app/public -e LOG=true hobord/go_static_httpfs
 ```
 
 ## Build
