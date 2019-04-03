@@ -6,7 +6,6 @@ Usage:
 	-b="/" or env.BASE_URI:                base path of static files on the web
 	-k="300" or env.KEEPALIVE:             http header keep-alive value
 	-c="max-age=2800" or env.CACHECONTROL: http header Cache-controll: value
-	-e="true" or env.ETAG:                 calculate and add etag from file
 	-i="true" or env.DIRINDEX:             show directories index
 	-l="true" or env.LOG:                  show requests logs
 	-m="true" or env.METRICS:              generate / serve metrics
@@ -15,12 +14,7 @@ Usage:
 package main
 
 import (
-	"bytes"
-	"crypto/sha1"
 	"flag"
-	"fmt"
-	"hash"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,7 +30,6 @@ type config struct {
 	baseURI      string
 	keepAlive    string
 	cacheControl string
-	etag         bool
 	dirIndex     bool
 	log          bool
 	metrics      bool
@@ -49,7 +42,6 @@ func (cfg *config) getConfigs() {
 	flag.StringVar(&cfg.baseURI, "b", "/", "the base path of static files")
 	flag.StringVar(&cfg.keepAlive, "k", "", "http header keep-alive value")
 	flag.StringVar(&cfg.cacheControl, "c", "", "http header Cache-controll: value")
-	flag.BoolVar(&cfg.etag, "e", false, "calculate and add etag from file")
 	flag.BoolVar(&cfg.dirIndex, "i", false, "show directories index")
 	flag.BoolVar(&cfg.log, "l", false, "show requests logs")
 	flag.BoolVar(&cfg.metrics, "m", false, "generate / serve metrics")
@@ -105,13 +97,6 @@ func (cfg *config) getConfigs() {
 		}
 	}
 
-	if cfg.etag == false {
-		envEtag := os.Getenv("ETAG")
-		if envEtag != "" {
-			cfg.etag = true
-		}
-	}
-
 	if cfg.metrics == false {
 		envMetrics := os.Getenv("METRICS")
 		if envMetrics != "" {
@@ -146,17 +131,6 @@ func (fs justFilesFilesystem) Open(name string) (http.File, error) {
 	return f, nil
 }
 
-type etagResponseWriter struct {
-	http.ResponseWriter
-	buf  bytes.Buffer
-	hash hash.Hash
-	w    io.Writer
-}
-
-func (e *etagResponseWriter) Write(p []byte) (int, error) {
-	return e.w.Write(p)
-}
-
 func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if cfg.keepAlive != "" {
@@ -165,29 +139,6 @@ func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
 		if cfg.cacheControl != "" {
 			w.Header().Add("Cache-Control", cfg.cacheControl)
 		}
-
-		if cfg.etag {
-			ew := &etagResponseWriter{
-				ResponseWriter: w,
-				buf:            bytes.Buffer{},
-				hash:           sha1.New(),
-			}
-			ew.w = io.MultiWriter(&ew.buf, ew.hash)
-
-			sum := fmt.Sprintf("%x", ew.hash.Sum(nil))
-			w.Header().Add("ETag", sum)
-
-			if r.Header.Get("If-None-Match") == sum {
-				w.WriteHeader(304)
-			} else {
-				_, err := ew.buf.WriteTo(w)
-				if err != nil {
-					fmt.Println("unable to write HTTP response")
-				}
-			}
-
-		}
-
 		h.ServeHTTP(w, r)
 	}
 }
