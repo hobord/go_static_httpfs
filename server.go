@@ -6,10 +6,11 @@ Usage:
 	-b="/" or env.BASE_URI:                base path of static files on the web
 	-k="300" or env.KEEPALIVE:             http header keep-alive value
 	-c="max-age=2800" or env.CACHECONTROL: http header Cache-controll: value
-	-e="true" or env.ETAG:             calculate and add etag from file
+	-e="true" or env.ETAG:                 calculate and add etag from file
 	-i="true" or env.DIRINDEX:             show directories index
 	-l="true" or env.LOG:                  show requests logs
-
+	-m="true" or env.METRICS:              generate / serve metrics
+	-mp="9090" or env.METRICS_PORT:        serve metrics on port
 */
 package main
 
@@ -23,6 +24,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	"github.com/slok/go-http-metrics/middleware"
 )
 
 type config struct {
@@ -34,6 +39,8 @@ type config struct {
 	etag         bool
 	dirIndex     bool
 	log          bool
+	metrics      bool
+	metricsPort  string
 }
 
 func (cfg *config) getConfigs() {
@@ -45,6 +52,8 @@ func (cfg *config) getConfigs() {
 	flag.BoolVar(&cfg.etag, "e", false, "calculate and add etag from file")
 	flag.BoolVar(&cfg.dirIndex, "i", false, "show directories index")
 	flag.BoolVar(&cfg.log, "l", false, "show requests logs")
+	flag.BoolVar(&cfg.metrics, "m", false, "generate / serve metrics")
+	flag.StringVar(&cfg.metricsPort, "mp", "9090", "serve metrics on port")
 	flag.Parse()
 
 	if cfg.port == "8100" {
@@ -100,6 +109,20 @@ func (cfg *config) getConfigs() {
 		envEtag := os.Getenv("ETAG")
 		if envEtag != "" {
 			cfg.etag = true
+		}
+	}
+
+	if cfg.metrics == false {
+		envMetrics := os.Getenv("METRICS")
+		if envMetrics != "" {
+			cfg.metrics = true
+		}
+	}
+
+	if cfg.metricsPort == "9090" {
+		envMetricsPort := os.Getenv("METRICS_PORT")
+		if envMetricsPort != "" {
+			cfg.metricsPort = envMetricsPort
 		}
 	}
 }
@@ -194,8 +217,19 @@ func main() {
 	loghandler := logHandler(cfg, stripPrefix)
 	headerChanger := changeHeaderThenServe(cfg, loghandler)
 
-	http.Handle(cfg.baseURI, headerChanger)
+	var h http.Handler = nil
+	if cfg.metrics {
+		mdlw := middleware.New(middleware.Config{
+			Recorder: metrics.NewRecorder(metrics.Config{}),
+		})
+
+		h = mdlw.Handler(cfg.baseURI, headerChanger)
+		log.Printf("serving metrics at: :%s", cfg.metricsPort)
+		go http.ListenAndServe(":"+cfg.metricsPort, promhttp.Handler())
+	} else {
+		http.Handle(cfg.baseURI, headerChanger)
+	}
 
 	log.Printf("Serving %s directory with %s basepath on HTTP port: %s\n", cfg.directory, cfg.baseURI, cfg.port)
-	log.Fatal(http.ListenAndServe(":"+cfg.port, nil))
+	log.Fatal(http.ListenAndServe(":"+cfg.port, h))
 }
