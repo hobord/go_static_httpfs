@@ -4,8 +4,7 @@ Usage:
 	-p="8100" or env.PORT:      port to serve on
 	-d="." or env.DIRECTORY:    the directory of static files to host
 	-b="/" or env.BASE_URI:     base path of static files on the web
-Navigating to http://localhost:8100
-listing file.
+
 */
 package main
 
@@ -20,6 +19,76 @@ import (
 	"net/http"
 	"os"
 )
+
+type config struct {
+	port      string
+	directory string
+	baseURI   string
+	keepAlive string
+	maxAge    string
+	dirIndex  bool
+	log       bool
+}
+
+func (cfg *config) getConfigs() {
+	flag.StringVar(&cfg.port, "p", "8100", "port to serve on")
+	flag.StringVar(&cfg.directory, "d", ".", "the directory of static file to host")
+	flag.StringVar(&cfg.baseURI, "b", "/", "the base path of static files")
+	flag.StringVar(&cfg.keepAlive, "k", "", "Header keep-alive value")
+	flag.StringVar(&cfg.maxAge, "m", "", "Cache-controll max-age value")
+	flag.BoolVar(&cfg.dirIndex, "i", false, "Show directories index")
+	flag.BoolVar(&cfg.log, "l", false, "Show request logs")
+	flag.Parse()
+
+	if cfg.port == "8100" {
+		envPort := os.Getenv("PORT")
+		if envPort != "" {
+			cfg.port = envPort
+		}
+	}
+
+	if cfg.directory == "." {
+		envDirectory := os.Getenv("DIRECTORY")
+		if envDirectory != "" {
+			cfg.directory = envDirectory
+		}
+	}
+
+	if cfg.baseURI == "/" {
+		envBase := os.Getenv("BASE_URI")
+		if envBase != "" {
+			cfg.baseURI = envBase
+		}
+	}
+
+	if cfg.keepAlive == "" {
+		envKeepAlive := os.Getenv("KEEPALIVE")
+		if envKeepAlive != "" {
+			cfg.baseURI = envKeepAlive
+		}
+	}
+
+	if cfg.maxAge == "" {
+		envMaxAge := os.Getenv("MAXAGE")
+		if envMaxAge != "" {
+			cfg.maxAge = envMaxAge
+		}
+	}
+
+	if cfg.dirIndex == false {
+		envDirIndex := os.Getenv("DIRINDEX")
+		if envDirIndex != "" {
+			cfg.dirIndex = true
+		}
+	}
+
+	if cfg.log == false {
+		envLog := os.Getenv("LOG")
+		if envLog != "" {
+			cfg.log = true
+		}
+	}
+}
 
 type justFilesFilesystem struct {
 	Fs http.FileSystem
@@ -51,40 +120,14 @@ func (e *etagResponseWriter) Write(p []byte) (int, error) {
 	return e.w.Write(p)
 }
 
-func getConfigs() (*string, *string, *string) {
-	portFlag := flag.String("p", "8100", "port to serve on")
-	directoryFlag := flag.String("d", ".", "the directory of static file to host")
-	baseFlag := flag.String("b", "/", "the base path of static files")
-	flag.Parse()
-
-	if *portFlag == "8100" {
-		envPort := os.Getenv("PORT")
-		if envPort != "" {
-			*portFlag = envPort
-		}
-	}
-
-	if *directoryFlag == "." {
-		envDirectory := os.Getenv("DIRECTORY")
-		if envDirectory != "" {
-			*directoryFlag = envDirectory
-		}
-	}
-
-	if *baseFlag == "/" {
-		envBase := os.Getenv("BASE_URI")
-		if envBase != "" {
-			*baseFlag = envBase
-		}
-	}
-
-	return portFlag, directoryFlag, baseFlag
-}
-
-func changeHeaderThenServe(h http.Handler) http.HandlerFunc {
+func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Keep-Alive", "300")
-		w.Header().Add("Cache-Control", "max-age=28800")
+		if cfg.keepAlive != "" {
+			w.Header().Add("Keep-Alive", cfg.keepAlive)
+		}
+		if cfg.maxAge != "" {
+			w.Header().Add("Cache-Control", "max-age="+cfg.maxAge)
+		}
 
 		// ETag
 		ew := &etagResponseWriter{
@@ -111,26 +154,33 @@ func changeHeaderThenServe(h http.Handler) http.HandlerFunc {
 	}
 }
 
-func logHandler(h http.Handler) http.Handler {
+func logHandler(cfg config, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(*r.URL)
+		if cfg.log {
+			log.Printf("%s", r.URL)
+		}
 		h.ServeHTTP(w, r)
 	})
 }
 
 func main() {
-	port, directory, baseURI := getConfigs()
+	cfg := config{}
+	cfg.getConfigs()
 
-	fs := justFilesFilesystem{http.Dir(*directory)}
+	var fs http.FileSystem
+	if cfg.dirIndex {
+		fs = http.Dir(cfg.directory)
+	} else {
+		fs = justFilesFilesystem{http.Dir(cfg.directory)}
+	}
+
 	fileServer := http.FileServer(fs)
-	stripPrefix := http.StripPrefix(*baseURI, fileServer)
-	loghandler := logHandler(stripPrefix)
-	headerChanger := changeHeaderThenServe(loghandler)
+	stripPrefix := http.StripPrefix(cfg.baseURI, fileServer)
+	loghandler := logHandler(cfg, stripPrefix)
+	headerChanger := changeHeaderThenServe(cfg, loghandler)
 
-	http.Handle(*baseURI, headerChanger)
+	http.Handle(cfg.baseURI, headerChanger)
 
-	// http.Handle(*baseURI, changeHeaderThenServe(logHandler((http.StripPrefix(*baseURI, http.FileServer(http.Dir(*directory)))))))
-
-	log.Printf("Serving %s directory with %s basepath on HTTP port: %s\n", *directory, *baseURI, *port)
-	log.Fatal(http.ListenAndServe(":"+*port, nil))
+	log.Printf("Serving %s directory with %s basepath on HTTP port: %s\n", cfg.directory, cfg.baseURI, cfg.port)
+	log.Fatal(http.ListenAndServe(":"+cfg.port, nil))
 }
