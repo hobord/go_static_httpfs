@@ -131,7 +131,7 @@ func (fs justFilesFilesystem) Open(name string) (http.File, error) {
 	return f, nil
 }
 
-func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
+func changeHeader(cfg config, h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if cfg.keepAlive != "" {
 			w.Header().Add("Keep-Alive", cfg.keepAlive)
@@ -166,9 +166,9 @@ func main() {
 	fileServer := http.FileServer(fs)
 	stripPrefix := http.StripPrefix(cfg.baseURI, fileServer)
 	loghandler := logHandler(cfg, stripPrefix)
-	headerChanger := changeHeaderThenServe(cfg, loghandler)
+	headerChanger := changeHeader(cfg, loghandler)
 
-	var h http.Handler = nil
+	var h http.Handler
 	if cfg.metrics {
 		mdlw := middleware.New(middleware.Config{
 			Recorder: metrics.NewRecorder(metrics.Config{}),
