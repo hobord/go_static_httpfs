@@ -80,7 +80,7 @@ func (cfg *config) getConfigs() {
 	if cfg.keepAlive == "" {
 		envKeepAlive := os.Getenv("KEEPALIVE")
 		if envKeepAlive != "" {
-			cfg.baseURI = envKeepAlive
+			cfg.keepAlive = envKeepAlive
 		}
 	}
 
