@@ -12,6 +12,11 @@ It is support basic cache control headers.
 
 It is support serve prometius metrics also.
 
+## Docker
+image: hobord/go_static_httpfs
+```
+docker run -p 8100:8100 -v ./your_public:/mnt -e DIRECTORY=/mnt -e LOG=true hobord/go_static_httpfs
+```
 
 ## Build
 
@@ -42,3 +47,4 @@ go build -o server.exe server.go
 -m="true"         or env.METRICS:      generate / serve metrics
 -mp="9090"        or env.METRICS_PORT: serve metrics on port
 ```
+
