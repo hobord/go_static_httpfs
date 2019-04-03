@@ -1,9 +1,13 @@
 /*
 Serve is a very simple static file server in go
 Usage:
-	-p="8100" or env.PORT:      port to serve on
-	-d="." or env.DIRECTORY:    the directory of static files to host
-	-b="/" or env.BASE_URI:     base path of static files on the web
+	-p="8100" or env.PORT:                        port to serve on
+	-d="." or env.DIRECTORY:                      the directory of static files to host
+	-b="/" or env.BASE_URI:                       base path of static files on the web
+	-k="300" or env.KEEPALIVE:                    http header keep-alive value
+	-c="max-age=2800" or env.CACHECONTROL:       http header Cache-controll: value
+	-i="true" or env.DIRINDEX:                    show directories index
+	-l="true" or env.LOG:                         show requests logs
 
 */
 package main
@@ -21,23 +25,23 @@ import (
 )
 
 type config struct {
-	port      string
-	directory string
-	baseURI   string
-	keepAlive string
-	maxAge    string
-	dirIndex  bool
-	log       bool
+	port         string
+	directory    string
+	baseURI      string
+	keepAlive    string
+	cacheControl string
+	dirIndex     bool
+	log          bool
 }
 
 func (cfg *config) getConfigs() {
 	flag.StringVar(&cfg.port, "p", "8100", "port to serve on")
 	flag.StringVar(&cfg.directory, "d", ".", "the directory of static file to host")
 	flag.StringVar(&cfg.baseURI, "b", "/", "the base path of static files")
-	flag.StringVar(&cfg.keepAlive, "k", "", "Header keep-alive value")
-	flag.StringVar(&cfg.maxAge, "m", "", "Cache-controll max-age value")
-	flag.BoolVar(&cfg.dirIndex, "i", false, "Show directories index")
-	flag.BoolVar(&cfg.log, "l", false, "Show request logs")
+	flag.StringVar(&cfg.keepAlive, "k", "", "http header keep-alive value")
+	flag.StringVar(&cfg.cacheControl, "c", "", "http header Cache-controll: value")
+	flag.BoolVar(&cfg.dirIndex, "i", false, "show directories index")
+	flag.BoolVar(&cfg.log, "l", false, "show requests logs")
 	flag.Parse()
 
 	if cfg.port == "8100" {
@@ -68,10 +72,10 @@ func (cfg *config) getConfigs() {
 		}
 	}
 
-	if cfg.maxAge == "" {
-		envMaxAge := os.Getenv("MAXAGE")
-		if envMaxAge != "" {
-			cfg.maxAge = envMaxAge
+	if cfg.cacheControl == "" {
+		envCacheControl := os.Getenv("CACHECONTROL")
+		if envCacheControl != "" {
+			cfg.cacheControl = envCacheControl
 		}
 	}
 
@@ -125,8 +129,8 @@ func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
 		if cfg.keepAlive != "" {
 			w.Header().Add("Keep-Alive", cfg.keepAlive)
 		}
-		if cfg.maxAge != "" {
-			w.Header().Add("Cache-Control", "max-age="+cfg.maxAge)
+		if cfg.cacheControl != "" {
+			w.Header().Add("Cache-Control", cfg.cacheControl)
 		}
 
 		// ETag
