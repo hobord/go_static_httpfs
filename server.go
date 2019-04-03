@@ -6,6 +6,7 @@ Usage:
 	-b="/" or env.BASE_URI:                base path of static files on the web
 	-k="300" or env.KEEPALIVE:             http header keep-alive value
 	-c="max-age=2800" or env.CACHECONTROL: http header Cache-controll: value
+	-e="true" or env.ETAG:             calculate and add etag from file
 	-i="true" or env.DIRINDEX:             show directories index
 	-l="true" or env.LOG:                  show requests logs
 
@@ -30,6 +31,7 @@ type config struct {
 	baseURI      string
 	keepAlive    string
 	cacheControl string
+	etag         bool
 	dirIndex     bool
 	log          bool
 }
@@ -40,6 +42,7 @@ func (cfg *config) getConfigs() {
 	flag.StringVar(&cfg.baseURI, "b", "/", "the base path of static files")
 	flag.StringVar(&cfg.keepAlive, "k", "", "http header keep-alive value")
 	flag.StringVar(&cfg.cacheControl, "c", "", "http header Cache-controll: value")
+	flag.BoolVar(&cfg.etag, "e", false, "calculate and add etag from file")
 	flag.BoolVar(&cfg.dirIndex, "i", false, "show directories index")
 	flag.BoolVar(&cfg.log, "l", false, "show requests logs")
 	flag.Parse()
@@ -92,6 +95,13 @@ func (cfg *config) getConfigs() {
 			cfg.log = true
 		}
 	}
+
+	if cfg.etag == false {
+		envEtag := os.Getenv("ETAG")
+		if envEtag != "" {
+			cfg.etag = true
+		}
+	}
 }
 
 type justFilesFilesystem struct {
@@ -133,26 +143,27 @@ func changeHeaderThenServe(cfg config, h http.Handler) http.HandlerFunc {
 			w.Header().Add("Cache-Control", cfg.cacheControl)
 		}
 
-		// ETag
-		ew := &etagResponseWriter{
-			ResponseWriter: w,
-			buf:            bytes.Buffer{},
-			hash:           sha1.New(),
-		}
-		ew.w = io.MultiWriter(&ew.buf, ew.hash)
-
-		sum := fmt.Sprintf("%x", ew.hash.Sum(nil))
-		w.Header().Add("ETag", sum)
-
-		if r.Header.Get("If-None-Match") == sum {
-			w.WriteHeader(304)
-		} else {
-			_, err := ew.buf.WriteTo(w)
-			if err != nil {
-				fmt.Println("unable to write HTTP response")
+		if cfg.etag {
+			ew := &etagResponseWriter{
+				ResponseWriter: w,
+				buf:            bytes.Buffer{},
+				hash:           sha1.New(),
 			}
+			ew.w = io.MultiWriter(&ew.buf, ew.hash)
+
+			sum := fmt.Sprintf("%x", ew.hash.Sum(nil))
+			w.Header().Add("ETag", sum)
+
+			if r.Header.Get("If-None-Match") == sum {
+				w.WriteHeader(304)
+			} else {
+				_, err := ew.buf.WriteTo(w)
+				if err != nil {
+					fmt.Println("unable to write HTTP response")
+				}
+			}
+
 		}
-		// ETag END
 
 		h.ServeHTTP(w, r)
 	}
