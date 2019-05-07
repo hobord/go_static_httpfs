@@ -37,78 +37,88 @@ type config struct {
 }
 
 func (cfg *config) getConfigs() {
-	flag.StringVar(&cfg.port, "p", "8100", "port to serve on")
-	flag.StringVar(&cfg.directory, "d", ".", "the directory of static file to host")
-	flag.StringVar(&cfg.baseURI, "b", "/", "the base path of static files")
-	flag.StringVar(&cfg.keepAlive, "k", "", "http header keep-alive value")
-	flag.StringVar(&cfg.cacheControl, "c", "", "http header Cache-controll: value")
-	flag.BoolVar(&cfg.dirIndex, "i", false, "show directories index")
-	flag.BoolVar(&cfg.log, "l", false, "show requests logs")
-	flag.BoolVar(&cfg.metrics, "m", false, "generate / serve metrics")
-	flag.StringVar(&cfg.metricsPort, "mp", "9090", "serve metrics on port")
+	flagPort := flag.String("p", "8100", "port to serve on")
+	flagDirectory := flag.String("d", ".", "the directory of static file to host")
+	flagBaseURI := flag.String("b", "/", "the base path of static files")
+	flagKeepAlive := flag.String("k", "", "http header keep-alive value")
+	flagCacheControl := flag.String("c", "", "http header Cache-controll: value")
+	flagDirIndex := flag.Bool("i", false, "show directories index")
+	flagLog := flag.Bool("l", false, "show requests logs")
+	flagMetrics := flag.Bool("m", false, "generate / serve metrics")
+	flagMetricsPort := flag.String("mp", "9090", "serve metrics on port")
+
 	flag.Parse()
 
-	if cfg.port == "8100" {
-		envPort := os.Getenv("PORT")
-		if envPort != "" {
-			cfg.port = envPort
-		}
+	envPort := os.Getenv("PORT")
+	if envPort != "" {
+		cfg.port = envPort
+	}
+	if *flagPort != "8100" {
+		cfg.port = *flagPort
 	}
 
-	if cfg.directory == "." {
-		envDirectory := os.Getenv("DIRECTORY")
-		if envDirectory != "" {
-			cfg.directory = envDirectory
-		}
+	envDirectory := os.Getenv("DIRECTORY")
+	if envDirectory != "" {
+		cfg.directory = envDirectory
+	}
+	if *flagDirectory != "." {
+		cfg.directory = *flagDirectory
 	}
 
-	if cfg.baseURI == "/" {
-		envBase := os.Getenv("BASE_URI")
-		if envBase != "" {
-			cfg.baseURI = envBase
-		}
+	envBase := os.Getenv("BASE_URI")
+	if envBase != "" {
+		cfg.baseURI = envBase
+	}
+	if *flagBaseURI != "/" {
+		cfg.baseURI = *flagBaseURI
 	}
 
-	if cfg.keepAlive == "" {
-		envKeepAlive := os.Getenv("KEEPALIVE")
-		if envKeepAlive != "" {
-			cfg.keepAlive = envKeepAlive
-		}
+	envKeepAlive := os.Getenv("KEEPALIVE")
+	if envKeepAlive != "" {
+		cfg.keepAlive = envKeepAlive
+	}
+	if *flagKeepAlive != "" {
+		cfg.keepAlive = *flagKeepAlive
 	}
 
-	if cfg.cacheControl == "" {
-		envCacheControl := os.Getenv("CACHECONTROL")
-		if envCacheControl != "" {
-			cfg.cacheControl = envCacheControl
-		}
+	envCacheControl := os.Getenv("CACHECONTROL")
+	if envCacheControl != "" {
+		cfg.cacheControl = envCacheControl
+	}
+	if *flagCacheControl != "" {
+		cfg.cacheControl = *flagCacheControl
 	}
 
-	if cfg.dirIndex == false {
-		envDirIndex := os.Getenv("DIRINDEX")
-		if envDirIndex != "" {
-			cfg.dirIndex = true
-		}
+	envDirIndex := os.Getenv("DIRINDEX")
+	if envDirIndex != "" {
+		cfg.dirIndex = true
+	}
+	if *flagDirIndex != false {
+		cfg.dirIndex = *flagDirIndex
 	}
 
-	if cfg.log == false {
-		envLog := os.Getenv("LOG")
-		if envLog != "" {
-			cfg.log = true
-		}
+	envLog := os.Getenv("LOG")
+	if envLog != "" {
+		cfg.log = true
+	}
+	if *flagLog != false {
+		cfg.log = *flagLog
 	}
 
-	if cfg.metrics == false {
-		envMetrics := os.Getenv("METRICS")
-		if envMetrics != "" {
-			cfg.metrics = true
-		}
+	envMetrics := os.Getenv("METRICS")
+	if envMetrics != "" {
+		cfg.metrics = true
+	}
+	if *flagMetrics != false {
+		cfg.metrics = *flagMetrics
 	}
 
-	if cfg.metricsPort == "9090" {
-		envMetricsPort := os.Getenv("METRICS_PORT")
-		if envMetricsPort != "" {
-			cfg.metricsPort = envMetricsPort
-		}
+	envMetricsPort := os.Getenv("METRICS_PORT")
+	if envMetricsPort != "" {
+		cfg.metricsPort = envMetricsPort
+	}
+	if *flagMetricsPort != "9090" {
+		cfg.metricsPort = *flagMetricsPort
 	}
 }
 
@@ -153,7 +163,16 @@ func logHandler(cfg config, h http.Handler) http.Handler {
 }
 
 func main() {
-	cfg := config{}
+	cfg := config{
+		port:         "8100",
+		directory:    ".",
+		baseURI:      "/",
+		keepAlive:    "",
+		cacheControl: "",
+		dirIndex:     false,
+		log:          false,
+		metrics:      false,
+		metricsPort:  "9090"}
 	cfg.getConfigs()
 
 	var fs http.FileSystem
