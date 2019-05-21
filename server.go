@@ -25,15 +25,16 @@ import (
 )
 
 type config struct {
-	port         string
-	directory    string
-	baseURI      string
-	keepAlive    string
-	cacheControl string
-	dirIndex     bool
-	log          bool
-	metrics      bool
-	metricsPort  string
+	port            string
+	directory       string
+	baseURI         string
+	keepAlive       string
+	cacheControl    string
+	dirIndex        bool
+	log             bool
+	metrics         bool
+	metricsPort     string
+	imageProcessing bool
 }
 
 func (cfg *config) getConfigs() {
@@ -46,6 +47,7 @@ func (cfg *config) getConfigs() {
 	flagLog := flag.Bool("l", false, "show requests logs")
 	flagMetrics := flag.Bool("m", false, "generate / serve metrics")
 	flagMetricsPort := flag.String("mp", "9090", "serve metrics on port")
+	flagImageProcessing := flag.Bool("r", false, "image post process support")
 
 	flag.Parse()
 
@@ -119,6 +121,14 @@ func (cfg *config) getConfigs() {
 	}
 	if *flagMetricsPort != "9090" {
 		cfg.metricsPort = *flagMetricsPort
+	}
+
+	envImageProcessing := os.Getenv("IMAGEPROCESSING")
+	if envImageProcessing != "" {
+		cfg.imageProcessing = true
+	}
+	if *flagImageProcessing {
+		cfg.imageProcessing = true
 	}
 }
 
@@ -203,3 +213,39 @@ func main() {
 	log.Printf("Serving %s directory with %s basepath on HTTP port: %s\n", cfg.directory, cfg.baseURI, cfg.port)
 	log.Fatal(http.ListenAndServe(":"+cfg.port, h))
 }
+
+/*
+func WebHandler (w http.ResponseWriter, r *http.Request) {
+	var Path = "../../static/img/photos/2014/11/4/test.jpg"
+	ResizeImage(w, Path, 500) // pass the ResponseWriter in
+}
+
+func ResizeImage (w io.Writer, Path string, Width uint) {
+	var ImageExtension = strings.Split(Path, ".jpg")
+	var ImageNum       = strings.Split(ImageExtension[0], "/")
+	var ImageName      = ImageNum[len(ImageNum)-1]
+	fmt.Println(ImageName)
+	file, err := os.Open(Path)
+	if err != nil {
+			log.Fatal(err)
+	}
+
+	img, err := jpeg.Decode(file)
+	if err != nil {
+			log.Fatal(err)
+	}
+	file.Close()
+
+	m := resizer.Resize(Width, 0, img, resizer.Lanczos3)
+
+	// Don't write the file..
+	// out, err := os.Create(ImageName + "_t" + strconv.Itoa(int(Width)) + ".jpg")
+	// if err != nil {
+	// 		log.Fatal(err)
+	// }
+	// defer out.Close()
+
+	jpeg.Encode(w, m, nil) // Write to the ResponseWriter
+}
+
+*/
