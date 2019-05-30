@@ -144,7 +144,7 @@ func (fs justFilesFilesystem) Open(name string) (http.File, error) {
 	}
 
 	stat, err := f.Stat()
-	if stat.IsDir() {
+	if err != nil || stat == nil || stat.IsDir() {
 		return nil, os.ErrNotExist
 	}
 
